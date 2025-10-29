@@ -11,7 +11,8 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
-	"github.com/devbiu/CsvView/opened"
+	"github.com/devbiu/CsvView/loader"
+	"github.com/devbiu/CsvView/shower"
 )
 
 var topWindow fyne.Window
@@ -25,10 +26,10 @@ func main() {
 	w := a.NewWindow("CsvView")
 	topWindow = w
 	w.SetMainMenu(makeMenu(a, w))
-	//testDocTab(w)
-
-	w.SetMaster()
-	w.Resize(fyne.NewSize(640, 460))
+	l, _ := loader.NewCsvLoaderV2("./data/test_student.csv", 1024)
+	table := shower.NewVirtualTable(l)
+	w.SetContent(table.Scroll)
+	w.Resize(fyne.NewSize(1000, 700))
 	w.ShowAndRun()
 
 }
@@ -44,7 +45,7 @@ func makeMenu(a fyne.App, w fyne.Window) *fyne.MainMenu {
 				log.Println("Cancelled")
 				return
 			}
-			csvData, err := opened.CsvOpened(reader)
+			csvData, err := loader.CsvOpened(reader)
 			if err != nil {
 				dialog.ShowError(err, w)
 			}
