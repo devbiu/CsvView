@@ -30,8 +30,13 @@ func main() {
 	table := shower.NewVirtualTable(l)
 	w.SetContent(table.Scroll)
 	w.Resize(fyne.NewSize(1000, 700))
-	w.ShowAndRun()
 
+	d := fyne.CurrentApp().NewWindow("debugWindow")
+	d.SetContent(shower.DebugTable(l))
+	d.Resize(fyne.NewSize(500, 100))
+	d.Show()
+
+	w.ShowAndRun()
 }
 
 func makeMenu(a fyne.App, w fyne.Window) *fyne.MainMenu {

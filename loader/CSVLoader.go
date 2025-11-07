@@ -42,10 +42,18 @@ type CSVLoader struct {
 	edits    map[int]map[int]string
 	cols     int
 	rows     int
+	TotalRow int // 文件总行数
 
 	requestCh chan int // 用于按需加载的请求通道
 	stopCh    chan struct{}
 	ErrMsg    string // 错误信息
+
+	CacheStart  int64   // 缓存开始位置
+	CacheEnd    int64   // 缓存结束位置
+	ActiveIndex int64   // 当前活跃索引
+	maxMemory   int64   // 最大内存（目前控制在 maxMemory + loadRatio）
+	loadRatio   float64 // 加载比例
+	cleanRatio  float64 // 清理比例
 }
 
 // NewCSVLoader 异步启动偏移构建和请求处理
@@ -62,6 +70,12 @@ func NewCSVLoader(path string, cacheCap int) (*CSVLoader, error) {
 		edits:     make(map[int]map[int]string),
 		requestCh: make(chan int, 256),
 		stopCh:    make(chan struct{}),
+
+		CacheStart: 0,
+		CacheEnd:   0,
+		maxMemory:  1 * 1024 * 124, // default 1mb
+		loadRatio:  0.3,
+		cleanRatio: 0.5,
 	}
 	// 初始只探测文件是否为空并保留第0行offset
 	l.Offsets = append(l.Offsets, 0)

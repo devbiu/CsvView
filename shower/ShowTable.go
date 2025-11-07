@@ -1,6 +1,7 @@
 package shower
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"time"
@@ -20,16 +21,64 @@ type VirtualTable struct {
 	totalRows   int
 }
 
+var CSVLoaderDebug = [][]string{
+	{"errMsg", "cacheStart", "CachedEnd", "activeIndex", "totalRows"},
+	{"nil", "0", "0", "0", "0"},
+}
+
+func DebugTable(l *loader.CSVLoader) *widget.Table {
+	table := widget.NewTable(
+		func() (int, int) {
+			return len(CSVLoaderDebug), len(CSVLoaderDebug[0])
+		},
+		func() fyne.CanvasObject {
+			label := widget.NewLabel("")
+			label.Truncation = fyne.TextTruncateClip
+			label.Selectable = true
+			return label
+		},
+		func(id widget.TableCellID, obj fyne.CanvasObject) {
+			lbl := obj.(*widget.Label)
+			lbl.SetText(CSVLoaderDebug[id.Row][id.Col])
+		},
+	)
+	for i := range len(CSVLoaderDebug[0]) {
+		table.SetColumnWidth(i, float32((len((CSVLoaderDebug[0])[i])*8)+5))
+	}
+	go updateDebugTable(table, l)
+	return table
+}
+
+func updateDebugTable(table *widget.Table, l *loader.CSVLoader) {
+	for {
+		time.Sleep(1 * time.Second)
+		l.TryRLock()
+		CSVLoaderDebug[1][0] = l.ErrMsg
+		CSVLoaderDebug[1][1] = fmt.Sprintf("%d", l.CacheStart)
+		CSVLoaderDebug[1][2] = fmt.Sprintf("%d", l.CacheEnd)
+		CSVLoaderDebug[1][3] = fmt.Sprintf("%d", l.ActiveIndex)
+		CSVLoaderDebug[1][4] = fmt.Sprintf("%d", len(l.Cache))
+		l.Mu.RUnlock()
+		fyne.Do(func() {
+			table.Refresh()
+		})
+		time.Sleep(1 * time.Second)
+	}
+
+}
+
 func NewVirtualTable(l *loader.CSVLoader) *VirtualTable {
 	vt := &VirtualTable{
 		loader:      l,
 		visibleRows: 100,
-		totalRows:   len(l.Cache),
+		//totalRows:   len(l.Cache),
+		totalRows: int(l.CacheEnd),
 	}
 	vt.Table = widget.NewTable(
 		func() (int, int) {
 			// TODO 根据实际需要返回总行数和列数
-			return vt.totalRows, len(l.Cache[0])
+			//return vt.totalRows, len(l.Cache[1])
+			return int(l.CacheEnd), len(l.Cache[1])
 		},
 
 		func() fyne.CanvasObject {
@@ -48,11 +97,16 @@ func NewVirtualTable(l *loader.CSVLoader) *VirtualTable {
 			//}
 			// 加载实际内容
 			row := vt.startRow + (id.Row - vt.startRow)
-			data := l.GetRowV2(row)
+			data, update := l.GetRowV2(row)
 			if id.Col < len(data) && data != nil {
 				lbl.SetText(data[id.Col])
 			} else {
 				lbl.SetText("loading...")
+			}
+			if update {
+				fyne.Do(func() {
+					vt.Table.Refresh()
+				})
 			}
 
 		},
